@@ -122,6 +122,33 @@ async function sendTelegram(text, botToken, chatId) {
   }
 }
 
+// -- Feishu Webhook Delivery -------------------------------------------------
+
+// Sends the digest via Feishu bot webhook.
+// The user provides a Feishu webhook URL.
+async function sendFeishu(text, webhookUrl) {
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      msg_type: 'text',
+      content: {
+        text: text
+      }
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Feishu webhook error: ${res.status} ${err}`);
+  }
+
+  const data = await res.json();
+  if (data.code !== 0) {
+    throw new Error(`Feishu API error: ${data.msg}`);
+  }
+}
+
 // -- Email Delivery (Resend) -------------------------------------------------
 
 // Sends the digest via Resend's email API.
@@ -180,6 +207,18 @@ async function main() {
           status: 'ok',
           method: 'telegram',
           message: 'Digest sent to Telegram'
+        }));
+        break;
+      }
+
+      case 'feishu': {
+        const webhookUrl = delivery.webhookUrl;
+        if (!webhookUrl) throw new Error('delivery.webhookUrl not found in config.json');
+        await sendFeishu(digestText, webhookUrl);
+        console.log(JSON.stringify({
+          status: 'ok',
+          method: 'feishu',
+          message: 'Digest sent to Feishu'
         }));
         break;
       }
